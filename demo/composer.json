@@ -1,0 +1,48 @@
+{
+    "name": "tacman/ai-batch-demo",
+    "description": "Demo: programmer ad copy for dummyjson products, sync vs OpenAI Batch API",
+    "type": "project",
+    "license": "MIT",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": "^8.0",
+        "symfony/framework-bundle": "^8.0",
+        "symfony/console": "^8.0",
+        "symfony/http-client": "^8.0",
+        "symfony/dotenv": "^8.0",
+        "symfony/runtime": "^8.0",
+        "tacman/ai-batch-bundle": "*",
+        "symfony/flex": "^2.10",
+        "symfony/yaml": "^8.0",
+        "symfony/messenger": "^8.0",
+        "doctrine/doctrine-bundle": "^3.2",
+        "doctrine/doctrine-migrations-bundle": "^4.0",
+        "doctrine/orm": "^3.6",
+        "symfony/ai-platform": "^0.6",
+        "symfony/ai-open-ai-platform": "^0.6",
+        "symfony/ai-bundle": "^0.6.0"
+    }
+    ,
+    "require-dev": {
+        "roave/security-advisories": "dev-latest"
+    },
+    "autoload": {
+        "psr-4": { "App\\": "src/" }
+    },
+    "repositories": [
+        {"type": "path", "url": ".."}
+    ],
+    "config": {
+        "allow-plugins": {
+            "symfony/runtime": true,
+            "symfony/flex": true
+        }
+    },
+    "scripts": {
+        "auto-scripts": {
+            "cache:clear": "symfony-cmd",
+            "assets:install %PUBLIC_DIR%": "symfony-cmd"
+        }
+    }
+}
