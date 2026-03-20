@@ -8,6 +8,8 @@ Include Entity for storage
 **Proposed for inclusion in [symfony/ai](https://github.com/symfony/ai)** as
 `BatchCapablePlatformInterface` — a 5-method extension of `PlatformInterface`.
 
+Moved from tacman to add data-bundle and other survos-specific tooling
+
 ---
 
 ## Why batch?
