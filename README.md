@@ -159,29 +159,6 @@ It dispatches `PollBatchesMessage` which your handler processes:
 
 ---
 
-## Proposed symfony/ai interface
-
-This bundle implements `BatchCapablePlatformInterface` — proposed for
-`symfony/ai` as a 5-method extension of `PlatformInterface`:
-
-```php
-interface BatchCapablePlatformInterface
-{
-    public function supportsBatch(): bool;
-    public function submitBatch(array $requests, array $options = []): BatchJob;
-    public function checkBatch(string $batchId): BatchJob;
-    public function fetchResults(BatchJob $job): iterable;  // yields BatchResult
-    public function cancelBatch(string $batchId): BatchJob;
-}
-```
-
-Implementations:
-- ✅ `OpenAiBatchClient` — OpenAI `/v1/batches`
-- ✅ `AnthropicBatchClient` — Anthropic `/v1/messages/batches`
-- ❌ Mistral — no batch API yet
-- 📋 Google Vertex AI batch prediction — planned
-
----
 
 ## License
 
