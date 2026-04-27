@@ -36,6 +36,12 @@ class TacmanAiBatchBundle extends AbstractBundle
 
         $services->set(\Tacman\AiBatch\Service\AiBatchBuilder::class);
         $services->set(\Tacman\AiBatch\Scheduler\PollBatchesTask::class);
+
+        if (class_exists(\Survos\TablerBundle\Event\MenuEvent::class)) {
+            $services->set(\Tacman\AiBatch\Menu\AiBatchMenuSubscriber::class)
+                ->autowire()
+                ->autoconfigure();
+        }
     }
 
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void

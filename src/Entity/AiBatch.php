@@ -12,6 +12,7 @@ use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
 use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Survos\FieldBundle\Attribute\EntityMeta;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 /**
@@ -30,6 +31,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
 )]
 #[ApiFilter(SearchFilter::class, properties: ['status' => 'exact', 'provider' => 'exact', 'task' => 'exact', 'datasetKey' => 'partial'])]
 #[ApiFilter(OrderFilter::class, properties: ['createdAt', 'submittedAt', 'completedAt', 'requestCount'])]
+#[EntityMeta(icon: 'mdi:robot-outline', group: 'AI')]
 #[ORM\Entity]
 #[ORM\Table(name: 'ai_batch')]
 #[ORM\Index(columns: ['status'])]
