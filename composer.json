@@ -13,10 +13,10 @@
         }
     },
     "require": {
-        "php": "^8.4",
-        "symfony/framework-bundle": "^8.0",
-        "symfony/http-client": "^8.0",
-        "symfony/scheduler": "^8.0"
+        "php": "^8.5",
+        "symfony/framework-bundle": "^8.1",
+        "symfony/http-client": "^8.1",
+        "symfony/scheduler": "^8.1"
     },
     "suggest": {
         "doctrine/orm": "For persisting AiBatch entities",
