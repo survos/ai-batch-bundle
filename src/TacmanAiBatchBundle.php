@@ -37,6 +37,11 @@ class TacmanAiBatchBundle extends AbstractBundle
         $services->set(\Tacman\AiBatch\Service\AiBatchBuilder::class);
         $services->set(\Tacman\AiBatch\Scheduler\PollBatchesTask::class);
 
+        // Register the bundle's console commands so `ai:batch:*` are available when the bundle is
+        // consumed by another app (the ai-batch app picked these up via its own App\ autowiring,
+        // which is why the missing registration only surfaced in consumer apps like md).
+        $services->load('Tacman\\AiBatch\\Command\\', \dirname(__DIR__) . '/src/Command/');
+
         if (class_exists(\Survos\TablerBundle\Event\MenuEvent::class)) {
             $services->set(\Tacman\AiBatch\Menu\AiBatchMenuSubscriber::class)
                 ->autowire()
