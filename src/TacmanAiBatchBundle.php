@@ -51,7 +51,9 @@ class TacmanAiBatchBundle extends AbstractBundle
 
     public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
     {
-        // Register AiBatch entity if Doctrine is available
+        // AiBatch is app-local orchestration state: a batch references the app's own entities (its
+        // subjects aren't visible outside the app), so it lives on the app's default EM — not the
+        // shared claims DB. (The claims a batch produces are recorded separately via ClaimIngestor.)
         if ($builder->hasExtension('doctrine')) {
             $builder->prependExtensionConfig('doctrine', [
                 'orm' => [
