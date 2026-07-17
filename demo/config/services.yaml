@@ -20,7 +20,7 @@ services:
         resource: '../src/'
 
     Symfony\AI\Platform\PlatformInterface:
-        factory: ['Symfony\AI\Platform\Bridge\OpenAi\PlatformFactory', 'create']
+        factory: ['Symfony\AI\Platform\Bridge\OpenAi\Factory', 'createPlatform']
         arguments: ['%env(OPENAI_API_KEY)%']
 
     # add more service definitions when explicit configuration is needed

@@ -19,9 +19,9 @@
         "doctrine/doctrine-bundle": "^3.2",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",
-        "symfony/ai-platform": "^0.6",
-        "symfony/ai-open-ai-platform": "^0.6",
-        "symfony/ai-bundle": "^0.6.0"
+        "symfony/ai-platform": "^0.11",
+        "symfony/ai-open-ai-platform": "^0.11",
+        "symfony/ai-bundle": "^0.11"
     }
     ,
     "require-dev": {
