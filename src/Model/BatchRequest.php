@@ -29,7 +29,52 @@ final class BatchRequest
         public readonly ?string $responseFormatClass = null,
         /** max_tokens, temperature, etc. */
         public readonly array   $options     = [],
+        /** Provider endpoint when it is not chat, e.g. '/v1/ocr'. Null means chat completions. */
+        public readonly ?string $endpoint    = null,
+        /** The raw request body, sent as-is instead of building a chat prompt. */
+        public readonly ?array  $body        = null,
     ) {}
+
+    /**
+     * A request for any endpoint, carrying the exact body a synchronous call would send -- so a
+     * task's batch path and sync path share one request builder. `model` is lifted out of the
+     * body: batch providers such as Mistral take it on the job, not the line.
+     *
+     * @param array<string, mixed> $body
+     */
+    public static function raw(string $customId, string $endpoint, array $body, ?string $model = null): self
+    {
+        $model ??= (string) ($body['model'] ?? '');
+        unset($body['model']);
+
+        return new self($customId, '', '', $model, endpoint: $endpoint, body: $body);
+    }
+
+    /**
+     * Serialize to a Mistral batch line: {custom_id, body}. The job carries model and endpoint.
+     */
+    public function toMistralLine(): array
+    {
+        if ($this->body !== null) {
+            return ['custom_id' => $this->customId, 'body' => $this->body];
+        }
+
+        $userContent = $this->imageUrl !== null
+            ? [
+                ['type' => 'text', 'text' => $this->userPrompt],
+                ['type' => 'image_url', 'image_url' => $this->imageUrl],
+              ]
+            : $this->userPrompt;
+        $messages = $this->systemPrompt !== '' ? [['role' => 'system', 'content' => $this->systemPrompt]] : [];
+        $messages[] = ['role' => 'user', 'content' => $userContent];
+
+        $body = array_merge(['messages' => $messages], $this->options);
+        if ($this->responseFormatClass !== null) {
+            $body['response_format'] = ['type' => 'json_object'];
+        }
+
+        return ['custom_id' => $this->customId, 'body' => $body];
+    }
 
     /**
      * Serialize to OpenAI batch JSONL line.

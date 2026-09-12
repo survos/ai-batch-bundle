@@ -90,6 +90,47 @@ final class BatchJob
         );
     }
 
+    /**
+     * A Mistral /v1/batch/jobs object. Status is normalized to the OpenAI vocabulary the rest of
+     * the bundle speaks (AiBatch::applyProviderStatus). SUCCESS means the job ran to the end, not
+     * that every line succeeded: failed lines are in error_file and counted in failed_requests.
+     */
+    public static function fromMistralArray(array $data): self
+    {
+        return new self(
+            id:             (string) $data['id'],
+            status:         match ((string) ($data['status'] ?? '')) {
+                'QUEUED'                                => 'validating',
+                'RUNNING', 'CANCELLATION_REQUESTED'     => 'in_progress',
+                'SUCCESS'                               => 'completed',
+                'FAILED'                                => 'failed',
+                'TIMEOUT_EXCEEDED'                      => 'expired',
+                'CANCELLED'                             => 'cancelled',
+                default                                 => strtolower((string) ($data['status'] ?? 'unknown')),
+            },
+            provider:       'mistral',
+            inputFileId:    $data['input_files'][0] ?? null,
+            outputFileId:   $data['output_file'] ?? null,
+            errorFileId:    $data['error_file'] ?? null,
+            totalCount:     (int) ($data['total_requests'] ?? 0),
+            completedCount: (int) ($data['succeeded_requests'] ?? $data['completed_requests'] ?? 0),
+            failedCount:    (int) ($data['failed_requests'] ?? 0),
+            createdAt:      self::epoch($data['created_at'] ?? null),
+            completedAt:    self::epoch($data['completed_at'] ?? null),
+            raw:            $data,
+        );
+    }
+
+    /** Mistral has returned both epoch seconds and ISO strings across API versions. */
+    private static function epoch(mixed $value): ?int
+    {
+        return match (true) {
+            is_int($value)                      => $value,
+            is_string($value) && $value !== ''  => strtotime($value) ?: null,
+            default                             => null,
+        };
+    }
+
     private static function normalizeAnthropicStatus(string $status): string
     {
         return match ($status) {

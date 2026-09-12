@@ -13,15 +13,15 @@ use Tacman\AiBatch\Model\BatchResult;
  * PROPOSED for inclusion in symfony/ai as an extension of PlatformInterface.
  *
  * Batch processing advantages over synchronous requests:
- *   - 50% cost reduction (OpenAI, Anthropic)
+ *   - 50% cost reduction (OpenAI, Anthropic, Mistral)
  *   - Separate, higher rate limit pool
  *   - No timeout pressure — results arrive within 24h
  *   - Natural fit for large-scale enrichment pipelines
  *
- * Provider support:
+ * Provider support (BatchClients resolves one by name):
  *   OpenAI    /v1/batches              ✓ implemented
  *   Anthropic /v1/messages/batches     ✓ implemented
- *   Mistral   (no batch API yet)       ✗ falls back to sync
+ *   Mistral   /v1/batch/jobs           ✓ implemented (any endpoint, incl. /v1/ocr)
  *   Google    Vertex AI batch predict  planned
  *
  * The Symfony Scheduler polls checkBatch() at a configured interval
