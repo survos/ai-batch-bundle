@@ -61,21 +61,14 @@ final class OpenAiBatchClient implements BatchCapablePlatformInterface
 
     public function fetchResults(BatchJob $job): iterable
     {
-        if (!$job->isComplete()) {
-            throw new \LogicException("Batch {$job->id} is not complete (status: {$job->status})");
+        if (!$job->isTerminal()) {
+            throw new \LogicException("Batch {$job->id} is not terminal (status: {$job->status})");
         }
-        if ($job->outputFileId === null) {
-            return;
-        }
-
-        $content = $this->getFileContent($job->outputFileId);
-        foreach (explode("\n", trim($content)) as $line) {
-            if ($line === '') continue;
-            try {
-                $data = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-                yield BatchResult::fromOpenAiLine($data);
-            } catch (\JsonException) {
-                // skip malformed lines
+        foreach (array_unique(array_filter([$job->outputFileId, $job->errorFileId])) as $fileId) {
+            $content = $this->getFileContent($fileId);
+            foreach (explode("\n", trim($content)) as $line) {
+                if ($line === '') { continue; }
+                yield BatchResult::fromOpenAiLine(json_decode($line, true, 512, JSON_THROW_ON_ERROR));
             }
         }
     }

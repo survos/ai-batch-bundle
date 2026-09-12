@@ -41,7 +41,10 @@ final class BatchResult
     public static function fromOpenAiLine(array $line): self
     {
         $response = $line['response'] ?? null;
-        $error    = $line['error']    ?? null;
+        $error    = $line['error'] ?? $response['body']['error'] ?? null;
+        if ($error === null && (int) ($response['status_code'] ?? 200) >= 400) {
+            $error = ['message' => 'HTTP ' . $response['status_code'], 'code' => (string) $response['status_code']];
+        }
 
         if ($error !== null) {
             return new self(
