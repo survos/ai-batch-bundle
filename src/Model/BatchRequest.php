@@ -82,6 +82,17 @@ final class BatchRequest
      */
     public function toOpenAiLine(): array
     {
+        // A raw request carries the exact body the sync call sends (see raw()); OpenAI takes the
+        // model on the line, so put back what raw() lifted out.
+        if ($this->body !== null) {
+            return [
+                'custom_id' => $this->customId,
+                'method'    => 'POST',
+                'url'       => $this->endpoint ?? '/v1/chat/completions',
+                'body'      => ['model' => $this->model] + $this->body,
+            ];
+        }
+
         $userContent = $this->imageUrl !== null
             ? [
                 ['type' => 'text', 'text' => $this->userPrompt],
