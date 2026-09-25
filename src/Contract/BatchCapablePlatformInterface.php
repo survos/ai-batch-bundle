@@ -10,7 +10,8 @@ use Tacman\AiBatch\Model\BatchResult;
 /**
  * Marks an AI platform as capable of async batch processing.
  *
- * PROPOSED for inclusion in symfony/ai as an extension of PlatformInterface.
+ * Legacy provider adapter contract used by existing application pipelines.
+ * New OpenAI jobs use NativeOpenAiBatchService and Symfony AI 0.14 JobHandle instead.
  *
  * Batch processing advantages over synchronous requests:
  *   - 50% cost reduction (OpenAI, Anthropic, Mistral)

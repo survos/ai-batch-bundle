@@ -1,176 +1,97 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Command;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\AI\Platform\Bridge\OpenAi\Batch\JobClient;
+use Symfony\AI\Platform\Exception\JobFailedException;
+use Symfony\AI\Platform\Job\JobHandle;
+use Symfony\AI\Platform\Job\JobStateCase;
 use Symfony\Component\Console\Attribute\Argument;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Tacman\AiBatch\Entity\AiBatch;
-use Tacman\AiBatch\Model\BatchJob;
-use Tacman\AiBatch\Service\OpenAiBatchClient;
+use Symfony\Component\Filesystem\Filesystem;
 
-/**
- * Check the status of a submitted batch and display results when ready.
- *
- *   bin/console app:fetch-batch 1
- *   bin/console app:fetch-batch 1 --watch                    # polls every 30s until done
- *   bin/console app:fetch-batch 1 --output=results/2.jsonl  # save output to file
- */
-#[AsCommand('app:fetch-batch', 'Check status and fetch results of a submitted AI batch')]
+#[AsCommand('app:fetch-batch', 'Resume a saved Symfony AI JobHandle and fetch batch results')]
 final class FetchBatchCommand
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly OpenAiBatchClient      $client,
-    ) {}
+        private readonly JobClient $client,
+        private readonly Filesystem $filesystem,
+    ) {
+    }
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument('Local AiBatch ID (from app:advertising --batch output)')] int $batchId,
-        #[Option('Poll every 30 seconds until complete')] bool $watch = false,
-        #[Option('Save results to file')] ?string $output = null,
+        #[Argument('Path to the job handle JSON printed by app:ads --batch')] string $handleFile,
+        #[Option('Poll until the batch reaches a terminal state')] bool $watch = false,
+        #[Option('Save results as JSONL (defaults to the handle filename with .results.jsonl)')] ?string $output = null,
+        #[Option('Maximum seconds to watch before returning; the job continues remotely')] int $timeout = 3600,
     ): int {
-        $batch = $this->em->find(AiBatch::class, $batchId);
+        if ($timeout < 1) {
+            $io->error('The timeout must be positive.');
 
-        if (!$batch) {
-            $io->error("No batch found with ID {$batchId}");
+            return Command::INVALID;
+        }
+        $handle = JobHandle::fromString(file_get_contents($handleFile));
+        if (!$this->client->supports($handle)) {
+            $io->error('This handle is not a native OpenAI batch. Old demo database IDs cannot be resumed here.');
+
+            return Command::INVALID;
+        }
+        $output ??= $handleFile.'.results.jsonl';
+        $deadline = microtime(true) + $timeout;
+        do {
+            $progress = $this->client->getProgress($handle);
+            $status = $progress['status'];
+            $io->text(sprintf('%s: %s — %d/%d completed, %d failed', $handle->getId(), $status->getRaw(), $progress['completed'], $progress['total'], $progress['failed']));
+            if ($status->isTerminal()) {
+                break;
+            }
+            if (!$watch) {
+                $io->note('Still processing. Run this command again later, or add --watch.');
+
+                return Command::SUCCESS;
+            }
+            $remaining = $deadline - microtime(true);
+            if ($remaining <= 0) {
+                $io->warning('Watch timed out. Keep the handle and fetch again later; the remote batch is still running.');
+
+                return Command::FAILURE;
+            }
+            usleep((int) (min($handle->getPollInterval() ?? 60.0, $remaining) * 1_000_000));
+        } while (true);
+
+        try {
+            // The native client also retrieves partial results from canceled/expired batches.
+            $result = $this->client->getResult($handle);
+        } catch (JobFailedException $exception) {
+            $io->error($exception->getMessage());
+
             return Command::FAILURE;
         }
 
-        // Default output path: results/{providerBatchId}.jsonl
-        if ($output === null && $batch->outputFileId) {
-            $output = 'results/' . $batch->providerBatchId . '.jsonl';
-        }
-
-        // Skip if already downloaded
-        if ($output && file_exists($output)) {
-            $io->success(sprintf('Results already saved to %s', $output));
-            return Command::SUCCESS;
-        }
-
-        $io->title(sprintf('Batch #%d — %s', $batchId, $batch->task));
-
-        do {
-            // Refresh status from provider
-            $job = $this->client->checkBatch($batch->providerBatchId);
-            $batch->applyProviderStatus(
-                $job->status,
-                $job->completedCount,
-                $job->failedCount,
-                $job->outputFileId,
-                $job->errorFileId,
-            );
-            $this->em->flush();
-
-            $this->printStatus($io, $batch, $job);
-
-            if ($batch->isComplete()) {
-                $this->printResults($io, $batch, $output);
-                return Command::SUCCESS;
-            }
-
-            if ($batch->isFailed()) {
-                $io->error(sprintf('Batch %s. Check OpenAI dashboard for details.', $batch->status));
-                return Command::FAILURE;
-            }
-
-            if ($watch) {
-                $io->writeln('  Waiting 30 seconds...');
-                sleep(30);
-            }
-
-        } while ($watch && $batch->isProcessing());
-
-        if (!$batch->isComplete()) {
-            $io->note([
-                'Still processing. Check again with:',
-                sprintf('  bin/console app:fetch-batch %d', $batchId),
-                '',
-                'Or watch continuously with:',
-                sprintf('  bin/console app:fetch-batch %d --watch', $batchId),
-            ]);
-        }
-
-        return Command::SUCCESS;
-    }
-
-    private function printStatus(SymfonyStyle $io, AiBatch $batch, \Tacman\AiBatch\Model\BatchJob $job): void
-    {
-        $statusEmoji = match (true) {
-            $job->isComplete()   => '✅',
-            $job->isFailed()     => '❌',
-            $job->isProcessing() => '⏳',
-            default              => '❓',
-        };
-
-        $io->table(
-            ['Field', 'Value'],
-            [
-                ['Status',         $statusEmoji . ' ' . $job->status],
-                ['Provider ID',    $batch->providerBatchId],
-                ['Progress',       sprintf('%d / %d (failed: %d)', $job->completedCount, $job->totalCount, $job->failedCount)],
-                ['Submitted',      $batch->submittedAt?->format('Y-m-d H:i:s') ?? '-'],
-                ['Last polled',    $batch->lastPolledAt?->format('Y-m-d H:i:s') ?? 'just now'],
-            ]
-        );
-    }
-
-    private function printResults(SymfonyStyle $io, AiBatch $batch, ?string $output): void
-    {
-        $io->section('🎉 Results');
-
-        $count = 0;
         $lines = [];
-
-        foreach ($this->client->fetchResults(
-            new BatchJob(
-                id:           $batch->providerBatchId,
-                status:       'completed',
-                provider:     'openai',
-                outputFileId: $batch->outputFileId,
-            )
-        ) as $result) {
-            if (!$result->success) {
-                $io->writeln(sprintf('  ❌ <error>%s: %s</error>', $result->customId, $result->error));
-                $lines[] = json_encode(['custom_id' => $result->customId, 'error' => $result->error]);
-                continue;
+        $failed = !$status->is(JobStateCase::SUCCEEDED);
+        foreach ($result->getContent() as $item) {
+            $row = ['custom_id' => $item->getId(), 'status' => $item->getCase()->value];
+            if ($item->isSuccess()) {
+                $row['content'] = $item->getResult()->getContent();
+            } else {
+                $failed = true;
+                $row['error'] = $item->getError();
+                $row['code'] = $item->getRaw();
             }
-
-            // Parse product id from custom_id "product_{id}"
-            $productId = str_replace('product_', '', $result->customId);
-            $copy      = is_string($result->content) ? $result->content : json_encode($result->content);
-
-            $io->writeln(sprintf('<info>Product #%s</info>', $productId));
-            $io->writeln(sprintf('  %s', $copy));
-            $io->newLine();
-
-            $lines[] = json_encode([
-                'custom_id' => $result->customId,
-                'response'  => ['content' => $copy],
-            ]);
-
-            $count++;
-            $batch->appliedCount = $count;
+            $line = json_encode($row, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+            $io->writeln($line);
+            $lines[] = $line;
         }
+        $this->filesystem->dumpFile($output, implode("\n", $lines).([] === $lines ? '' : "\n"));
+        $io->text(sprintf('Saved %d results to %s', count($lines), $output));
 
-        $this->em->flush();
-
-        // Save to file if requested
-        if ($output) {
-            @mkdir(dirname($output), 0775, true);
-            file_put_contents($output, implode("\n", $lines) . "\n");
-            $io->success(sprintf('%d results saved to %s', $count, $output));
-        } else {
-            $io->success(sprintf(
-                '%d results displayed. Tokens used: ~%d prompt + ~%d output.',
-                $count,
-                $count * 300,  // rough estimate for low-res vision
-                $count * 150,
-            ));
-        }
+        return $failed ? Command::FAILURE : Command::SUCCESS;
     }
 }

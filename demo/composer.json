@@ -1,6 +1,6 @@
 {
-    "name": "tacman/ai-batch-demo",
-    "description": "Demo: programmer ad copy for dummyjson products, sync vs OpenAI Batch API",
+    "name": "survos/ai-batch-demo",
+    "description": "Symfony AI 0.14 native OpenAI batch demo: submit, persist a JobHandle, and fetch per-request results.",
     "type": "project",
     "license": "MIT",
     "minimum-stability": "dev",
@@ -12,26 +12,21 @@
         "symfony/http-client": "^8.0",
         "symfony/dotenv": "^8.0",
         "symfony/runtime": "^8.0",
-        "tacman/ai-batch-bundle": "*",
         "symfony/flex": "^2.10",
         "symfony/yaml": "^8.0",
-        "symfony/messenger": "^8.0",
-        "doctrine/doctrine-bundle": "^3.2",
-        "doctrine/doctrine-migrations-bundle": "^4.0",
-        "doctrine/orm": "^3.6",
-        "symfony/ai-platform": "^0.13",
-        "symfony/ai-open-ai-platform": "^0.13",
-        "symfony/ai-bundle": "^0.13"
-    }
-    ,
+        "symfony/ai-platform": "^0.14",
+        "symfony/ai-open-ai-platform": "^0.14",
+        "symfony/ai-bundle": "^0.14",
+        "symfony/filesystem": "^8.1"
+    },
     "require-dev": {
+        "phpunit/phpunit": "^13.0"
     },
     "autoload": {
-        "psr-4": { "App\\": "src/" }
+        "psr-4": {
+            "App\\": "src/"
+        }
     },
-    "repositories": [
-        {"type": "path", "url": ".."}
-    ],
     "config": {
         "allow-plugins": {
             "symfony/runtime": true,
@@ -42,6 +37,12 @@
         "auto-scripts": {
             "cache:clear": "symfony-cmd",
             "assets:install %PUBLIC_DIR%": "symfony-cmd"
+        },
+        "test": "phpunit"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
         }
     }
 }

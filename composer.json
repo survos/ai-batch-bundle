@@ -1,6 +1,6 @@
 {
     "name": "survos/ai-batch-bundle",
-    "description": "Async batch AI processing for Symfony. Implements OpenAI Batch API and Anthropic Message Batches with Symfony Scheduler polling.",
+    "description": "Persistent AI batch orchestration for Symfony AI: durable job handles, lifecycle tracking, result archives and replay.",
     "type": "symfony-bundle",
     "license": "MIT",
     "keywords": ["symfony", "ai", "batch", "openai", "anthropic", "async"],
@@ -14,6 +14,10 @@
     },
     "require": {
         "php": "^8.5",
+        "survos/kit-bundle": "^2.33",
+        "symfony/ai-platform": "^0.14",
+        "symfony/ai-open-ai-platform": "^0.14",
+        "symfony/filesystem": "^8.1",
         "symfony/framework-bundle": "^8.1",
         "symfony/http-client": "^8.1",
         "symfony/scheduler": "^8.1"
@@ -25,7 +29,7 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0",
-        "symfony/ai-agent": "*"
+        "symfony/ai-agent": "^0.14"
     },
     "extra": {
         "symfony": {

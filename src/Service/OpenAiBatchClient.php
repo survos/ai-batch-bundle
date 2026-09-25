@@ -12,8 +12,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * OpenAI Batch API client.
  *
- * Implements the proposed BatchCapablePlatformInterface.
- * Can be used standalone or as a decorator for OpenAiPlatform.
+ * Compatibility client for existing Chat Completions batches and raw JSONL callers.
+ * New native Responses batches use NativeOpenAiBatchService.
  *
  * Cost: 50% discount vs sync API.
  * Limit: 50,000 requests / 200MB per batch.

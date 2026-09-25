@@ -1,3 +1,7 @@
+> Historical prototype notes. Superseded by README.md: the canonical package is
+> survos/ai-batch-bundle, and native OpenAI jobs use released Symfony AI 0.14.
+> The old upstream-interface proposal and push instructions below are obsolete.
+
 # Session Summary — tacman/ai-batch-bundle
 
 ## What This Is

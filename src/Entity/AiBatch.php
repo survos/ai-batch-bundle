@@ -14,6 +14,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Survos\FieldBundle\Attribute\EntityMeta;
 use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\AI\Platform\Job\JobHandle;
 
 /**
  * Persists an AI batch job through its lifecycle.
@@ -140,6 +141,26 @@ class AiBatch
         $this->inputFileId     = $inputFileId;
         $this->status          = 'submitted';
         $this->submittedAt     = new \DateTimeImmutable();
+    }
+
+    /** Stored in the existing JSON column: no schema migration or PHP object serialization. */
+    public function attachJobHandle(JobHandle $handle): void
+    {
+        if ($this->providerBatchId !== null && $this->providerBatchId !== $handle->getId()) {
+            throw new \LogicException('Cannot replace the provider job of an existing batch.');
+        }
+
+        $this->meta['symfony_ai_job'] = $handle->toArray();
+        $this->provider = $handle->getProvider() ?? $this->provider;
+        $this->markSubmitted($handle->getId(), '');
+        $this->inputFileId = null;
+    }
+
+    public function getJobHandle(): ?JobHandle
+    {
+        $handle = $this->meta['symfony_ai_job'] ?? null;
+
+        return $handle === null ? null : JobHandle::fromArray($handle);
     }
 
     public function applyProviderStatus(string $status, int $completed, int $failed, ?string $outputFileId, ?string $errorFileId): void

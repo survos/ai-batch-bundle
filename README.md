@@ -1,165 +1,105 @@
 # survos/ai-batch-bundle
 
-Async batch AI processing for Symfony. Implements the **OpenAI Batch API** and
-**Anthropic Message Batches API** with a Symfony Scheduler poller.
+Persistent batch orchestration for Symfony AI 0.14: durable job handles, application
+batch records, progress, archives, replay, and scheduler messages. Symfony AI owns
+native OpenAI submission, polling, and result conversion.
 
-Include Entity for storage
+## Package identity
 
-**Proposed for inclusion in [symfony/ai](https://github.com/symfony/ai)** as
-`BatchCapablePlatformInterface` — a 5-method extension of `PlatformInterface`.
-
-Moved from tacman to add data-bundle and other survos-specific tooling
-
----
-
-## Why batch?
-
-| | Synchronous | Batch API |
-|---|---|---|
-| Cost | $0.0008 / image (gpt-4o-mini) | **$0.0004 / image (50% off)** |
-| Rate limits | Standard pool | **Separate, much higher pool** |
-| Timeout risk | Yes (large sets) | **None — 24h window** |
-| Results | Immediate | ~10 min (up to 24h) |
-| Best for | Interactive, ≤100 items | **Enrichment pipelines, ≥1000 items** |
-
-
----
-
-## Quick demo
-
-The `demo/` directory shows the full pattern with a fun example:
-generate programmer-targeted advertising copy for products from [dummyjson.com](https://dummyjson.com),
-using product images (vision) + descriptions.
+Install **`survos/ai-batch-bundle`** from the Survos monorepo. `tacman/ai-batch-bundle`
+is the historical package name, not a second bundle to install. The PHP namespace
+`Tacman\AiBatch` and `TacmanAiBatchBundle` registration are deliberately retained:
+existing services, Doctrine entity metadata, application handlers, and queued messages
+use those names. Renaming the Composer package does not require renaming those classes.
 
 ```bash
-cd demo
-composer install
-# Add your OPENAI_API_KEY to .env.local
-
-# Synchronous — 2 products, results immediately
-bin/console app:ads --limit=2
-
-# Batch — all 194 products, 50% cheaper
-bin/console app:ads --batch
-
-#  ✅ 194 products submitted to OpenAI Batch API (50% cost discount applies!)
-#  ┌──────────────────┬────────────────────────────┐
-#  │ Local batch ID   │ 1                          │
-#  │ Provider batch   │ batch_6789abc...            │
-#  │ Status           │ submitted                  │
-#  │ Requests         │ 194                        │
-#  │ Est. cost        │ $0.0776                    │
-#  │ vs sync cost     │ $0.1552 (you save $0.0776) │
-#  └──────────────────┴────────────────────────────┘
-#
-#  Results will be ready in ~10 minutes.
-#    bin/console app:fetch-batch 1
-
-# Check status and display results
-bin/console app:fetch-batch 1
-
-#  > ⏳ Still processing (47 / 194)
-
-bin/console app:fetch-batch 1
-
-#  > ✅ completed
-#
-#  Product #1 — Essence Mascara Lash Princess ($9.99)
-#    Like git blame for your lashes — it shows exactly who's responsible
-#    for those dramatic, volumizing commits. Cruelty-free, just like your
-#    code reviews should be.
-#
-#  Product #2 — Fingertip Skateboard ($29.99)
-#    Finally, something you can debug with your fingers. Ships in 3-5 days,
-#    which is faster than your CI pipeline.
-
-# Watch mode — polls every 30s until done
-bin/console app:fetch-batch 1 --watch
+composer require survos/ai-batch-bundle
 ```
 
----
-
-## Installation
-
-```bash
-composer require tacman/ai-batch-bundle
-```
-
-Add to `config/bundles.php`:
 ```php
 Tacman\AiBatch\TacmanAiBatchBundle::class => ['all' => true],
 ```
 
-Add to `.env`:
-```
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...  # optional
-```
+The kit base registers commands and Doctrine mappings. Existing mapping name/alias
+`TacmanAiBatch` is preserved. Store `OPENAI_API_KEY` in the host application's environment.
+Doctrine persistence is owned by the host application; use its migration workflow.
 
-Run the schema update:
-```bash
-bin/console doctrine:schema:update --force
-```
+## Native jobs with persistence
 
----
-
-## Usage
-
-### Build and submit a batch
+Inject `Tacman\AiBatch\Service\NativeOpenAiBatchService` for new OpenAI batches.
+Build the same message bags used for synchronous calls, keyed by stable subject IDs.
 
 ```php
-use Tacman\AiBatch\Model\BatchRequest;
-use Tacman\AiBatch\Service\AiBatchBuilder;
+use Symfony\AI\Platform\Message\Message;
+use Symfony\AI\Platform\Message\MessageBag;
+use Tacman\AiBatch\Entity\AiBatch;
 
-$batch = $batchBuilder->build(
-    datasetKey:     'my-collection',
-    task:           'image_enrichment',
-    records:        $normalizedRecords,         // iterable
-    requestFactory: fn(array $row) => new BatchRequest(
-        customId:     $row['id'],
-        systemPrompt: 'You are a museum cataloguer...',
-        userPrompt:   'Describe this image and extract keywords.',
-        model:        'gpt-4o-mini',
-        imageUrl:     $row['thumbnail_url'],    // image_url, not base64
-    ),
-);
-
-$batch = $batchBuilder->submit($batch);
+$batch = new AiBatch();
+$batch->datasetKey = 'my-collection';
+$batch->task = 'description';
 $entityManager->persist($batch);
 $entityManager->flush();
 
-echo "Batch #{$batch->id} submitted: {$batch->providerBatchId}";
+$handle = $nativeBatch->submit($batch, 'gpt-4o-mini', [
+    'object_123' => new MessageBag(Message::ofUser('Describe this object.')),
+]);
+$entityManager->flush();
 ```
 
-### Check and apply results
+The serializable handle is stored under `meta.symfony_ai_job` in the existing JSON
+column. No database schema migration is required. The entity also keeps its provider
+ID, request count, submission time, and application metadata. A later worker loads
+that entity and resumes the provider job:
 
 ```php
-$job = $batchClient->checkBatch($batch->providerBatchId);
-
-if ($job->isComplete()) {
-    foreach ($batchClient->fetchResults($job) as $result) {
-        // $result->customId maps back to your record id
-        // $result->content is the parsed JSON response
-        $enrichment = MediaEnrichment::fromNormalized($records[$result->customId]);
-        $enrichment->applyAiEnrichment($result->content);
-        // push to zm, update DB, etc.
-    }
+$status = $nativeBatch->refresh($batch);
+$entityManager->flush();
+if ($status->isTerminal()) {
+    $nativeBatch->archive($batch, $archivePath);
+    $entityManager->flush();
 }
 ```
 
-### Automatic polling with Symfony Scheduler
-
-The bundle registers a `PollBatchesTask` that fires every 2 minutes.
-It dispatches `PollBatchesMessage` which your handler processes:
+Archive retrieval can fail if a terminal job has no output/error file; the exception
+leaves any previous archive intact. Canceled/expired jobs can have partial output.
+Each archive row preserves the subject ID, success/error/canceled/expired outcome,
+content, and error. Files are atomically replaced only after a complete download.
+Replay is offline:
 
 ```php
-// In your app — implement a handler that calls checkBatch() on all
-// AiBatch entities with status='processing'
+foreach (NativeOpenAiBatchService::replay($archivePath) as $row) {
+    // Apply successful rows idempotently using $row['custom_id']; retain failures for review/retry.
+}
 ```
 
----
+Archives are versioned normalized JSONL (`symfony-ai-batch-v1`), not raw provider
+responses. `results()` also exposes native `BatchItem` objects directly. The caller
+owns persistence transactions, deduplication, and exactly-once application to subjects.
+Submitting an already-associated entity is rejected. An HTTP submit and a database
+flush are not atomic: if a flush fails after acceptance, retain/reconcile the returned
+handle before retrying. This service does not promise remote exactly-once submission.
 
+## Existing jobs and other providers
 
-## License
+`OpenAiBatchClient`, `AiBatchBuilder`, `BatchRequest`, `BatchJob`, and the legacy
+`BatchCapablePlatformInterface` remain compatibility APIs. Existing applications use
+raw Chat Completions JSONL, uploaded file IDs, provider response bodies, and saved
+archives. Symfony's new OpenAI batches use `/v1/responses`; silently sending old jobs
+through that converter would break them. Native services therefore require a stored
+native handle and explicitly reject legacy rows. Legacy `batch:replay` stays separate
+from `NativeOpenAiBatchService::replay()`.
 
-MIT — contributions welcome.
+Anthropic and Mistral adapters remain available through `BatchClients`. Native OpenAI
+support does not replace those providers' batch APIs.
+
+The scheduler dispatches `PollBatchesMessage` every two minutes. Host handlers choose
+the native service when `$batch->getJobHandle()` is non-null and their existing adapter
+otherwise. They remain responsible for applying results and recording `appliedCount`.
+Existing handlers are not switched automatically.
+
+## Demo
+
+See [demo/README.md](demo/README.md). It runs against released Symfony AI 0.14,
+using files to demonstrate handle persistence across processes, without a fork,
+Doctrine database, or custom provider protocol. Its local numeric database IDs from
+the old demo are not inputs to the new fetch command.
