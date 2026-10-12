@@ -3,13 +3,14 @@ declare(strict_types=1);
 
 namespace Tacman\AiBatch\Entity;
 
-use ApiPlatform\Metadata\ApiFilter;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
+use ApiPlatform\Metadata\QueryParameter;
+use ApiPlatform\Doctrine\Orm\Filter\PartialSearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\ExactFilter;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Doctrine\Orm\Filter\SearchFilter;
-use ApiPlatform\Doctrine\Orm\Filter\OrderFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SortFilter;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Survos\FieldBundle\Attribute\EntityMeta;
@@ -26,12 +27,16 @@ use Symfony\AI\Platform\Job\JobHandle;
 #[ApiResource(
     operations: [
         new Get(uriTemplate: '/ai-batches/{id}'),
-        new GetCollection(uriTemplate: '/ai-batches'),
+        new GetCollection(uriTemplate: '/ai-batches', parameters: [
+            'status' => new QueryParameter(filter: new ExactFilter(), property: 'status'),
+            'provider' => new QueryParameter(filter: new ExactFilter(), property: 'provider'),
+            'task' => new QueryParameter(filter: new ExactFilter(), property: 'task'),
+            'datasetKey' => new QueryParameter(filter: new PartialSearchFilter(), property: 'datasetKey'),
+            'order[:property]' => new QueryParameter(filter: new SortFilter(), properties: ['createdAt', 'submittedAt', 'completedAt', 'requestCount']),
+        ]),
     ],
     normalizationContext: ['groups' => ['ai_batch:read']],
 )]
-#[ApiFilter(SearchFilter::class, properties: ['status' => 'exact', 'provider' => 'exact', 'task' => 'exact', 'datasetKey' => 'partial'])]
-#[ApiFilter(OrderFilter::class, properties: ['createdAt', 'submittedAt', 'completedAt', 'requestCount'])]
 #[EntityMeta(icon: 'mdi:robot-outline', group: 'AI')]
 #[ORM\Entity]
 #[ORM\Table(name: 'ai_batch')]
