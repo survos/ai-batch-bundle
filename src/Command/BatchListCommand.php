@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Command;
@@ -19,7 +20,8 @@ final class BatchListCommand
 {
     public function __construct(
         private readonly OpenAiBatchClient $client,
-    ) {}
+    ) {
+    }
 
     public function __invoke(
         SymfonyStyle $io,
@@ -29,16 +31,17 @@ final class BatchListCommand
 
         if (empty($batches)) {
             $io->note('No batches found.');
+
             return 0;
         }
 
         $rows = [];
         foreach ($batches as $job) {
             $emoji = match (true) {
-                $job->isComplete()   => '✅',
-                $job->isFailed()     => '❌',
+                $job->isComplete() => '✅',
+                $job->isFailed() => '❌',
                 $job->isProcessing() => '⏳',
-                default              => '❓',
+                default => '❓',
             };
 
             $progress = $job->totalCount > 0
@@ -47,9 +50,9 @@ final class BatchListCommand
 
             $rows[] = [
                 $job->id,
-                $emoji . ' ' . $job->status,
+                $emoji.' '.$job->status,
                 $progress,
-                $job->failedCount > 0 ? (string)$job->failedCount : '-',
+                $job->failedCount > 0 ? (string) $job->failedCount : '-',
                 $job->createdAt ? date('m-d H:i', $job->createdAt) : '-',
             ];
         }

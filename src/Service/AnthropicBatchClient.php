@@ -1,13 +1,14 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Service;
 
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Tacman\AiBatch\Contract\BatchCapablePlatformInterface;
 use Tacman\AiBatch\Model\BatchJob;
 use Tacman\AiBatch\Model\BatchRequest;
 use Tacman\AiBatch\Model\BatchResult;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Anthropic Message Batches API client.
@@ -20,32 +21,38 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final class AnthropicBatchClient implements BatchCapablePlatformInterface
 {
-    private const BASE    = 'https://api.anthropic.com/v1';
+    private const BASE = 'https://api.anthropic.com/v1';
     private const VERSION = '2023-06-01';
 
     public function __construct(
         private readonly HttpClientInterface $http,
-        private readonly string              $apiKey,
-    ) {}
+        private readonly string $apiKey,
+    ) {
+    }
 
-    public function supportsBatch(): bool { return true; }
+    public function supportsBatch(): bool
+    {
+        return true;
+    }
 
     public function submitBatch(array $requests, array $options = []): BatchJob
     {
         $payload = [
             'requests' => array_map(
-                static fn(BatchRequest $r) => $r->toAnthropicLine(),
+                static fn (BatchRequest $r) => $r->toAnthropicLine(),
                 $requests
             ),
         ];
 
         $data = $this->post('/messages/batches', $payload);
+
         return BatchJob::fromAnthropicArray($data);
     }
 
     public function checkBatch(string $batchId): BatchJob
     {
         $data = $this->get("/messages/batches/{$batchId}");
+
         return BatchJob::fromAnthropicArray($data);
     }
 
@@ -56,21 +63,25 @@ final class AnthropicBatchClient implements BatchCapablePlatformInterface
         }
 
         // Anthropic streams results from a paginated endpoint
-        $url = self::BASE . "/messages/batches/{$job->id}/results";
+        $url = self::BASE."/messages/batches/{$job->id}/results";
         $response = $this->http->request('GET', $url, ['headers' => $this->headers()]);
 
         foreach (explode("\n", trim($response->getContent())) as $line) {
-            if ($line === '') continue;
+            if ('' === $line) {
+                continue;
+            }
             try {
                 $data = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
                 yield BatchResult::fromAnthropicLine($data);
-            } catch (\JsonException) {}
+            } catch (\JsonException) {
+            }
         }
     }
 
     public function cancelBatch(string $batchId): BatchJob
     {
         $data = $this->post("/messages/batches/{$batchId}/cancel", []);
+
         return BatchJob::fromAnthropicArray($data);
     }
 
@@ -78,26 +89,26 @@ final class AnthropicBatchClient implements BatchCapablePlatformInterface
 
     private function get(string $path): array
     {
-        return $this->http->request('GET', self::BASE . $path, [
+        return $this->http->request('GET', self::BASE.$path, [
             'headers' => $this->headers(),
         ])->toArray();
     }
 
     private function post(string $path, array $payload): array
     {
-        return $this->http->request('POST', self::BASE . $path, [
+        return $this->http->request('POST', self::BASE.$path, [
             'headers' => $this->headers(),
-            'json'    => $payload,
+            'json' => $payload,
         ])->toArray();
     }
 
     private function headers(): array
     {
         return [
-            'x-api-key'         => $this->apiKey,
+            'x-api-key' => $this->apiKey,
             'anthropic-version' => self::VERSION,
-            'anthropic-beta'    => 'message-batches-2024-09-24',
-            'content-type'      => 'application/json',
+            'anthropic-beta' => 'message-batches-2024-09-24',
+            'content-type' => 'application/json',
         ];
     }
 }

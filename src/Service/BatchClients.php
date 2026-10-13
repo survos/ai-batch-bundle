@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Service;
@@ -16,7 +17,8 @@ final class BatchClients
     public function __construct(
         #[AutowireLocator('tacman.ai_batch.client', indexAttribute: 'provider')]
         private readonly ContainerInterface $clients,
-    ) {}
+    ) {
+    }
 
     public function has(string $provider): bool
     {

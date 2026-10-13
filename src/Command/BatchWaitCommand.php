@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Command;
 
-use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Argument;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Tacman\AiBatch\Service\OpenAiBatchClient;
@@ -21,7 +22,8 @@ final class BatchWaitCommand
 {
     public function __construct(
         private readonly OpenAiBatchClient $client,
-    ) {}
+    ) {
+    }
 
     public function __invoke(
         SymfonyStyle $io,
@@ -35,7 +37,7 @@ final class BatchWaitCommand
         $start = time();
 
         while (true) {
-            $job     = $this->client->checkBatch($batchId);
+            $job = $this->client->checkBatch($batchId);
             $elapsed = gmdate('H:i:s', time() - $start);
 
             $bar = $job->totalCount > 0
@@ -51,12 +53,12 @@ final class BatchWaitCommand
                     $job->completedCount, $job->failedCount
                 ));
 
-                if ($download !== null) {
+                if (null !== $download) {
                     $io->text("Downloading to {$download}...");
                     @mkdir(dirname($download), 0775, true);
                     $content = '';
                     foreach ($this->client->fetchResults($job) as $result) {
-                        $content .= json_encode($result->raw, JSON_UNESCAPED_UNICODE) . "\n";
+                        $content .= json_encode($result->raw, JSON_UNESCAPED_UNICODE)."\n";
                     }
                     file_put_contents($download, $content);
                     $io->success("Results saved to {$download}");
@@ -67,12 +69,14 @@ final class BatchWaitCommand
                         "  bin/console ai:batch:download {$batchId} --output=results.jsonl",
                     ]);
                 }
+
                 return 0;
             }
 
             if ($job->isFailed()) {
                 $io->newLine(2);
                 $io->error(sprintf('Batch %s (status: %s).', $batchId, $job->status));
+
                 return 1;
             }
 

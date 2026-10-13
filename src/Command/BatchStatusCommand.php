@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Command;
 
-use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Argument;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Tacman\AiBatch\Service\OpenAiBatchClient;
 
@@ -13,7 +14,8 @@ final class BatchStatusCommand
 {
     public function __construct(
         private readonly OpenAiBatchClient $client,
-    ) {}
+    ) {
+    }
 
     public function __invoke(
         SymfonyStyle $io,
@@ -22,25 +24,25 @@ final class BatchStatusCommand
         $job = $this->client->checkBatch($batchId);
 
         $emoji = match (true) {
-            $job->isComplete()   => '✅',
-            $job->isFailed()     => '❌',
+            $job->isComplete() => '✅',
+            $job->isFailed() => '❌',
             $job->isProcessing() => '⏳',
-            default              => '❓',
+            default => '❓',
         };
 
         $io->table(
             ['Field', 'Value'],
             [
                 ['Batch ID',      $job->id],
-                ['Status',        $emoji . ' ' . $job->status],
+                ['Status',        $emoji.' '.$job->status],
                 ['Total',         $job->totalCount],
                 ['Completed',     $job->completedCount],
                 ['Failed',        $job->failedCount],
                 ['Output file',   $job->outputFileId ?? '(not ready)'],
-                ['Error file',    $job->errorFileId  ?? 'none'],
-                ['Created',       $job->createdAt   ? date('Y-m-d H:i:s', $job->createdAt)   : '-'],
+                ['Error file',    $job->errorFileId ?? 'none'],
+                ['Created',       $job->createdAt ? date('Y-m-d H:i:s', $job->createdAt) : '-'],
                 ['Completed at',  $job->completedAt ? date('Y-m-d H:i:s', $job->completedAt) : '-'],
-                ['Expires at',    $job->expiresAt   ? date('Y-m-d H:i:s', $job->expiresAt)   : '-'],
+                ['Expires at',    $job->expiresAt ? date('Y-m-d H:i:s', $job->expiresAt) : '-'],
             ]
         );
 

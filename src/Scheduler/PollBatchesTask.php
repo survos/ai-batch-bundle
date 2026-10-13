@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Scheduler;
 
-use Symfony\Component\Scheduler\Attribute\AsCronTask;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Scheduler\Attribute\AsCronTask;
 use Tacman\AiBatch\Message\PollBatchesMessage;
 
 /**
@@ -21,7 +22,8 @@ final class PollBatchesTask
 {
     public function __construct(
         private readonly MessageBusInterface $bus,
-    ) {}
+    ) {
+    }
 
     public function __invoke(): void
     {

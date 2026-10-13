@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Command;
 
-use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Argument;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Tacman\AiBatch\Service\OpenAiBatchClient;
@@ -26,7 +27,8 @@ final class BatchDownloadCommand
 {
     public function __construct(
         private readonly OpenAiBatchClient $client,
-    ) {}
+    ) {
+    }
 
     public function __invoke(
         SymfonyStyle $io,
@@ -47,38 +49,41 @@ final class BatchDownloadCommand
                 '  — or —',
                 "  bin/console ai:batch:wait {$batchId} --download={$output}",
             ]);
+
             return 1; // Command::FAILURE — scriptable
         }
 
         if ($job->isFailed()) {
             $io->error(sprintf('Batch %s failed (status: %s).', $batchId, $job->status));
+
             return 1;
         }
 
-        if (!$job->isComplete() || $job->outputFileId === null) {
+        if (!$job->isComplete() || null === $job->outputFileId) {
             $io->error('Batch is not complete or has no output file.');
+
             return 1;
         }
 
-        $lines   = [];
-        $ok      = 0;
-        $failed  = 0;
+        $lines = [];
+        $ok = 0;
+        $failed = 0;
 
         foreach ($this->client->fetchResults($job) as $result) {
             if (!$result->success) {
-                $failed++;
+                ++$failed;
                 if ($io->isVerbose()) {
                     $io->writeln(sprintf('  FAIL %s: %s', $result->customId, $result->error));
                 }
             } else {
-                $ok++;
+                ++$ok;
             }
             $lines[] = json_encode($result->raw, JSON_UNESCAPED_UNICODE | ($pretty ? JSON_PRETTY_PRINT : 0));
         }
 
-        $content = implode("\n", $lines) . "\n";
+        $content = implode("\n", $lines)."\n";
 
-        if ($output !== null) {
+        if (null !== $output) {
             @mkdir(dirname($output), 0775, true);
             file_put_contents($output, $content);
             $io->success(sprintf(

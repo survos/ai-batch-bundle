@@ -1,14 +1,15 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch;
 
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Survos\Kit\AbstractSurvosBundle;
 use Survos\Kit\SurvosKitBundle;
 use Survos\Kit\Traits\HasDoctrineEntities;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Kernel\RequiredBundle;
+use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 /**
  * Async batch AI processing for Symfony.
@@ -48,37 +49,37 @@ class TacmanAiBatchBundle extends AbstractSurvosBundle
 
         $services = $container->services()->defaults()->autowire()->autoconfigure();
 
-        $services->set(\Tacman\AiBatch\Service\OpenAiBatchClient::class)
+        $services->set(Service\OpenAiBatchClient::class)
             ->arg('$apiKey', '%env(OPENAI_API_KEY)%')
             ->tag('tacman.ai_batch.client', ['provider' => 'openai']);
 
-        $services->set(\Tacman\AiBatch\Service\AnthropicBatchClient::class)
+        $services->set(Service\AnthropicBatchClient::class)
             ->arg('$apiKey', '%env(string:default::ANTHROPIC_API_KEY)%')
             ->tag('tacman.ai_batch.client', ['provider' => 'anthropic']);
 
-        $services->set(\Tacman\AiBatch\Service\MistralBatchClient::class)
+        $services->set(Service\MistralBatchClient::class)
             ->arg('$apiKey', '%env(string:default::MISTRAL_API_KEY)%')
             ->tag('tacman.ai_batch.client', ['provider' => 'mistral']);
 
         // provider name (AiBatch.provider) → client
-        $services->set(\Tacman\AiBatch\Service\BatchClients::class);
+        $services->set(Service\BatchClients::class);
 
-        $services->alias(\Tacman\AiBatch\Contract\BatchCapablePlatformInterface::class, \Tacman\AiBatch\Service\OpenAiBatchClient::class);
+        $services->alias(Contract\BatchCapablePlatformInterface::class, Service\OpenAiBatchClient::class);
 
-        $services->set(\Tacman\AiBatch\Service\AiBatchBuilder::class);
+        $services->set(Service\AiBatchBuilder::class);
         $services->set('tacman.ai_batch.native_openai_platform', \Symfony\AI\Platform\Platform::class)
             ->factory([\Symfony\AI\Platform\Bridge\OpenAi\Factory::class, 'createPlatform'])
             ->args(['%env(OPENAI_API_KEY)%']);
         $services->set('tacman.ai_batch.native_openai_job_client', \Symfony\AI\Platform\Bridge\OpenAi\Batch\JobClient::class)
             ->factory([\Symfony\AI\Platform\Bridge\OpenAi\Factory::class, 'createJobClient'])
             ->args(['%env(OPENAI_API_KEY)%']);
-        $services->set(\Tacman\AiBatch\Service\NativeOpenAiBatchService::class)
+        $services->set(Service\NativeOpenAiBatchService::class)
             ->arg('$platform', new \Symfony\Component\DependencyInjection\Reference('tacman.ai_batch.native_openai_platform'))
             ->arg('$client', new \Symfony\Component\DependencyInjection\Reference('tacman.ai_batch.native_openai_job_client'));
-        $services->set(\Tacman\AiBatch\Scheduler\PollBatchesTask::class);
+        $services->set(Scheduler\PollBatchesTask::class);
 
         if (class_exists(\Survos\TablerBundle\Event\MenuEvent::class)) {
-            $services->set(\Tacman\AiBatch\Menu\AiBatchMenuSubscriber::class)
+            $services->set(Menu\AiBatchMenuSubscriber::class)
                 ->autowire()
                 ->autoconfigure();
         }

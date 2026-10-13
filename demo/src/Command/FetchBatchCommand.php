@@ -44,7 +44,7 @@ final class FetchBatchCommand
         }
         $output ??= $handleFile.'.results.jsonl';
         $deadline = microtime(true) + $timeout;
-        do {
+        while (true) {
             $progress = $this->client->getProgress($handle);
             $status = $progress['status'];
             $io->text(sprintf('%s: %s — %d/%d completed, %d failed', $handle->getId(), $status->getRaw(), $progress['completed'], $progress['total'], $progress['failed']));
@@ -63,7 +63,7 @@ final class FetchBatchCommand
                 return Command::FAILURE;
             }
             usleep((int) (min($handle->getPollInterval() ?? 60.0, $remaining) * 1_000_000));
-        } while (true);
+        }
 
         try {
             // The native client also retrieves partial results from canceled/expired batches.

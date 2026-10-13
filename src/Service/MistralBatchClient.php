@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Service;
@@ -37,11 +38,12 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
     public function __construct(
         private readonly HttpClientInterface $http,
         private readonly string $apiKey,
-    ) {}
+    ) {
+    }
 
     public function supportsBatch(): bool
     {
-        return $this->apiKey !== '';
+        return '' !== $this->apiKey;
     }
 
     /**
@@ -50,33 +52,30 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
      */
     public function submitBatch(array $requests, array $options = []): BatchJob
     {
-        if ($requests === []) {
+        if ([] === $requests) {
             throw new \InvalidArgumentException('A Mistral batch needs at least one request.');
         }
         $endpoint = $requests[0]->endpoint ?? '/v1/chat/completions';
-        $model    = $requests[0]->model;
-        $lines    = [];
+        $model = $requests[0]->model;
+        $lines = [];
         foreach ($requests as $r) {
             if (($r->endpoint ?? '/v1/chat/completions') !== $endpoint || $r->model !== $model) {
-                throw new \InvalidArgumentException(sprintf(
-                    'A Mistral batch has one endpoint and one model; got %s/%s and %s/%s. Group requests before submitting.',
-                    $endpoint, $model, $r->endpoint ?? '/v1/chat/completions', $r->model,
-                ));
+                throw new \InvalidArgumentException(sprintf('A Mistral batch has one endpoint and one model; got %s/%s and %s/%s. Group requests before submitting.', $endpoint, $model, $r->endpoint ?? '/v1/chat/completions', $r->model));
             }
             $lines[] = $r->toMistralLine();
         }
 
         $payload = array_filter([
-            'endpoint'      => $endpoint,
-            'model'         => $model,
-            'metadata'      => $options['metadata'] ?? null,
+            'endpoint' => $endpoint,
+            'model' => $model,
+            'metadata' => $options['metadata'] ?? null,
             'timeout_hours' => $options['timeout_hours'] ?? null,
-        ], static fn (mixed $v): bool => $v !== null);
+        ], static fn (mixed $v): bool => null !== $v);
 
         if (($options['inline'] ?? true) && \count($lines) < self::INLINE_LIMIT) {
             $payload['requests'] = $lines;
         } else {
-            $jsonl = implode("\n", array_map(static fn (array $l): string => json_encode($l, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), $lines)) . "\n";
+            $jsonl = implode("\n", array_map(static fn (array $l): string => json_encode($l, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), $lines))."\n";
             $payload['input_files'] = [$this->uploadInputFile($jsonl)];
         }
 
@@ -98,7 +97,7 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
             throw new \LogicException("Mistral batch {$job->id} is still {$job->status}");
         }
 
-        if ($job->outputFileId !== null) {
+        if (null !== $job->outputFileId) {
             yield from $this->linesOf($job->outputFileId);
         } else {
             foreach ((array) ($job->raw['outputs'] ?? []) as $line) {
@@ -107,7 +106,7 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
                 }
             }
         }
-        if ($job->errorFileId !== null) {
+        if (null !== $job->errorFileId) {
             yield from $this->linesOf($job->errorFileId);
         }
     }
@@ -120,7 +119,7 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
     /** @return BatchJob[] newest first */
     public function listBatches(int $limit = 10): array
     {
-        $data = $this->request('GET', '/batch/jobs?page_size=' . $limit);
+        $data = $this->request('GET', '/batch/jobs?page_size='.$limit);
 
         return array_map(static fn (array $j): BatchJob => BatchJob::fromMistralArray($j), $data['data'] ?? []);
     }
@@ -128,12 +127,12 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
     /** Upload a .jsonl of {custom_id, body} lines; returns the file id. */
     public function uploadInputFile(string $jsonl): string
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'mistral_batch_') . '.jsonl';
+        $tmp = tempnam(sys_get_temp_dir(), 'mistral_batch_').'.jsonl';
         file_put_contents($tmp, $jsonl);
         try {
-            $response = $this->http->request('POST', self::BASE . '/files', [
+            $response = $this->http->request('POST', self::BASE.'/files', [
                 'auth_bearer' => $this->apiKey,
-                'body'        => ['purpose' => 'batch', 'file' => fopen($tmp, 'r')],
+                'body' => ['purpose' => 'batch', 'file' => fopen($tmp, 'r')],
             ]);
 
             return (string) $response->toArray()['id'];
@@ -145,12 +144,12 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
     /** @return iterable<BatchResult> */
     private function linesOf(string $fileId): iterable
     {
-        $content = $this->http->request('GET', self::BASE . "/files/{$fileId}/content", [
+        $content = $this->http->request('GET', self::BASE."/files/{$fileId}/content", [
             'auth_bearer' => $this->apiKey,
         ])->getContent();
 
         foreach (explode("\n", $content) as $line) {
-            if (trim($line) === '') {
+            if ('' === trim($line)) {
                 continue;
             }
             try {
@@ -165,10 +164,10 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
     private function request(string $method, string $path, ?array $json = null): array
     {
         $options = ['auth_bearer' => $this->apiKey, 'timeout' => 120];
-        if ($json !== null) {
+        if (null !== $json) {
             $options['json'] = $json;
         }
 
-        return $this->http->request($method, self::BASE . $path, $options)->toArray();
+        return $this->http->request($method, self::BASE.$path, $options)->toArray();
     }
 }

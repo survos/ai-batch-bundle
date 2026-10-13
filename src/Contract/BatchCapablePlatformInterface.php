@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Contract;
@@ -44,8 +45,8 @@ interface BatchCapablePlatformInterface
      * Each BatchRequest carries a customId that is echoed in results,
      * allowing correct mapping regardless of output ordering.
      *
-     * @param BatchRequest[]       $requests  Up to 50,000 per batch (OpenAI)
-     * @param array<string, mixed> $options   e.g. ['completion_window' => '24h']
+     * @param BatchRequest[]       $requests Up to 50,000 per batch (OpenAI)
+     * @param array<string, mixed> $options  e.g. ['completion_window' => '24h']
      */
     public function submitBatch(array $requests, array $options = []): BatchJob;
 
@@ -60,7 +61,8 @@ interface BatchCapablePlatformInterface
     /**
      * Download and yield results for a completed batch.
      *
-     * @return iterable<BatchResult>  One per request, keyed by customId
+     * @return iterable<BatchResult> One per request, keyed by customId
+     *
      * @throws \LogicException if BatchJob is not in completed state
      */
     public function fetchResults(BatchJob $job): iterable;

@@ -1,21 +1,22 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Entity;
 
+use ApiPlatform\Doctrine\Orm\Filter\ExactFilter;
+use ApiPlatform\Doctrine\Orm\Filter\PartialSearchFilter;
+use ApiPlatform\Doctrine\Orm\Filter\SortFilter;
 use ApiPlatform\Metadata\ApiProperty;
 use ApiPlatform\Metadata\ApiResource;
-use ApiPlatform\Metadata\QueryParameter;
-use ApiPlatform\Doctrine\Orm\Filter\PartialSearchFilter;
-use ApiPlatform\Doctrine\Orm\Filter\ExactFilter;
 use ApiPlatform\Metadata\Get;
 use ApiPlatform\Metadata\GetCollection;
-use ApiPlatform\Doctrine\Orm\Filter\SortFilter;
+use ApiPlatform\Metadata\QueryParameter;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Survos\FieldBundle\Attribute\EntityMeta;
-use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\AI\Platform\Job\JobHandle;
+use Symfony\Component\Serializer\Attribute\Groups;
 
 /**
  * Persists an AI batch job through its lifecycle.
@@ -136,22 +137,33 @@ class AiBatch
         return in_array($this->status, ['submitted', 'processing'], true);
     }
 
-    public function isComplete(): bool { return $this->status === 'completed'; }
-    public function isFailed(): bool   { return in_array($this->status, ['failed', 'expired'], true); }
-    public function isBuilding(): bool { return $this->status === 'building'; }
+    public function isComplete(): bool
+    {
+        return 'completed' === $this->status;
+    }
+
+    public function isFailed(): bool
+    {
+        return in_array($this->status, ['failed', 'expired'], true);
+    }
+
+    public function isBuilding(): bool
+    {
+        return 'building' === $this->status;
+    }
 
     public function markSubmitted(string $providerBatchId, string $inputFileId): void
     {
         $this->providerBatchId = $providerBatchId;
-        $this->inputFileId     = $inputFileId;
-        $this->status          = 'submitted';
-        $this->submittedAt     = new \DateTimeImmutable();
+        $this->inputFileId = $inputFileId;
+        $this->status = 'submitted';
+        $this->submittedAt = new \DateTimeImmutable();
     }
 
     /** Stored in the existing JSON column: no schema migration or PHP object serialization. */
     public function attachJobHandle(JobHandle $handle): void
     {
-        if ($this->providerBatchId !== null && $this->providerBatchId !== $handle->getId()) {
+        if (null !== $this->providerBatchId && $this->providerBatchId !== $handle->getId()) {
             throw new \LogicException('Cannot replace the provider job of an existing batch.');
         }
 
@@ -165,22 +177,22 @@ class AiBatch
     {
         $handle = $this->meta['symfony_ai_job'] ?? null;
 
-        return $handle === null ? null : JobHandle::fromArray($handle);
+        return null === $handle ? null : JobHandle::fromArray($handle);
     }
 
     public function applyProviderStatus(string $status, int $completed, int $failed, ?string $outputFileId, ?string $errorFileId): void
     {
-        $this->status         = match ($status) {
+        $this->status = match ($status) {
             'validating', 'in_progress', 'finalizing' => 'processing',
-            'completed'                                => 'completed',
-            'failed', 'expired', 'cancelled'           => 'failed',
-            default                                    => $this->status,
+            'completed' => 'completed',
+            'failed', 'expired', 'cancelled' => 'failed',
+            default => $this->status,
         };
         $this->completedCount = $completed;
-        $this->failedCount    = $failed;
-        $this->outputFileId   = $outputFileId ?? $this->outputFileId;
-        $this->errorFileId    = $errorFileId  ?? $this->errorFileId;
-        $this->lastPolledAt   = new \DateTimeImmutable();
+        $this->failedCount = $failed;
+        $this->outputFileId = $outputFileId ?? $this->outputFileId;
+        $this->errorFileId = $errorFileId ?? $this->errorFileId;
+        $this->lastPolledAt = new \DateTimeImmutable();
 
         if ($this->isComplete()) {
             $this->completedAt = new \DateTimeImmutable();

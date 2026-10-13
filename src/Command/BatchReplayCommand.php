@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tacman\AiBatch\Command;
 
-use Tacman\AiBatch\Model\BatchResult;
-use Tacman\AiBatch\Service\AiBatchBuilder;
-use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Argument;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Tacman\AiBatch\Model\BatchResult;
+use Tacman\AiBatch\Service\AiBatchBuilder;
 
 /**
  * Replay a saved batch result JSONL without hitting the provider.
@@ -27,7 +27,8 @@ final class BatchReplayCommand
 {
     public function __construct(
         private readonly AiBatchBuilder $builder,
-    ) {}
+    ) {
+    }
 
     public function __invoke(
         SymfonyStyle $io,
@@ -40,22 +41,23 @@ final class BatchReplayCommand
     ): int {
         if (!is_file($file)) {
             $io->error("File not found: {$file}");
+
             return Command::FAILURE;
         }
 
         $io->title(sprintf('Replaying batch results from %s', basename($file)));
 
-        $count   = 0;
+        $count = 0;
         $success = 0;
-        $failed  = 0;
+        $failed = 0;
 
         foreach ($this->builder->streamSavedResults($file) as $result) {
-            /** @var BatchResult $result */
-            if ($limit !== null && $count >= $limit) {
+            /* @var BatchResult $result */
+            if (null !== $limit && $count >= $limit) {
                 break;
             }
 
-            $count++;
+            ++$count;
 
             if (!$result->success) {
                 $io->writeln(sprintf(
@@ -63,11 +65,11 @@ final class BatchReplayCommand
                     $result->customId,
                     $result->error ?? $result->errorCode ?? 'unknown'
                 ));
-                $failed++;
+                ++$failed;
                 continue;
             }
 
-            $success++;
+            ++$success;
 
             if ($dryRun) {
                 $io->writeln(sprintf(

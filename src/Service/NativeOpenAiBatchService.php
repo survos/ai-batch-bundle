@@ -30,7 +30,7 @@ final class NativeOpenAiBatchService
     /** @param array<string, MessageBag> $inputs Stable subject IDs, also returned on each result. */
     public function submit(AiBatch $batch, string $model, array $inputs, array $options = []): JobHandle
     {
-        if (!$batch->isBuilding() || $batch->providerBatchId !== null || $batch->getJobHandle() !== null) {
+        if (!$batch->isBuilding() || null !== $batch->providerBatchId || null !== $batch->getJobHandle()) {
             throw new \LogicException('This batch already has a job; resume it instead of submitting it again.');
         }
         $handle = $this->platform->invoke($model, $inputs, ['batch' => true] + $options)->asJob();
@@ -63,11 +63,11 @@ final class NativeOpenAiBatchService
     {
         $this->filesystem->mkdir(dirname($path));
         $temporary = tempnam(dirname($path), '.native-batch-');
-        if ($temporary === false) {
+        if (false === $temporary) {
             throw new \RuntimeException('Cannot create the batch archive.');
         }
         $stream = fopen($temporary, 'wb');
-        if ($stream === false) {
+        if (false === $stream) {
             $this->filesystem->remove($temporary);
             throw new \RuntimeException('Cannot open the batch archive.');
         }
@@ -95,7 +95,7 @@ final class NativeOpenAiBatchService
     {
         $file = new \SplFileObject($path, 'r');
         foreach ($file as $line) {
-            if (trim($line) === '') {
+            if ('' === trim($line)) {
                 continue;
             }
             $row = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
@@ -109,7 +109,7 @@ final class NativeOpenAiBatchService
     private function handle(AiBatch $batch): JobHandle
     {
         $handle = $batch->getJobHandle();
-        if ($handle === null || !$this->client->supports($handle)) {
+        if (null === $handle || !$this->client->supports($handle)) {
             throw new \LogicException('No native OpenAI handle is stored on this batch. Use the legacy client for legacy jobs.');
         }
 

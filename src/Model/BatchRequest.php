@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Model;
@@ -24,16 +25,17 @@ final class BatchRequest
         public readonly string $userPrompt,
         public readonly string $model,
         /** Image URL for vision tasks (optional) */
-        public readonly ?string $imageUrl    = null,
+        public readonly ?string $imageUrl = null,
         /** Structured output class name for typed responses */
         public readonly ?string $responseFormatClass = null,
         /** max_tokens, temperature, etc. */
-        public readonly array   $options     = [],
+        public readonly array $options = [],
         /** Provider endpoint when it is not chat, e.g. '/v1/ocr'. Null means chat completions. */
-        public readonly ?string $endpoint    = null,
+        public readonly ?string $endpoint = null,
         /** The raw request body, sent as-is instead of building a chat prompt. */
-        public readonly ?array  $body        = null,
-    ) {}
+        public readonly ?array $body = null,
+    ) {
+    }
 
     /**
      * A request for any endpoint, carrying the exact body a synchronous call would send -- so a
@@ -55,21 +57,21 @@ final class BatchRequest
      */
     public function toMistralLine(): array
     {
-        if ($this->body !== null) {
+        if (null !== $this->body) {
             return ['custom_id' => $this->customId, 'body' => $this->body];
         }
 
-        $userContent = $this->imageUrl !== null
+        $userContent = null !== $this->imageUrl
             ? [
                 ['type' => 'text', 'text' => $this->userPrompt],
                 ['type' => 'image_url', 'image_url' => $this->imageUrl],
-              ]
+            ]
             : $this->userPrompt;
-        $messages = $this->systemPrompt !== '' ? [['role' => 'system', 'content' => $this->systemPrompt]] : [];
+        $messages = '' !== $this->systemPrompt ? [['role' => 'system', 'content' => $this->systemPrompt]] : [];
         $messages[] = ['role' => 'user', 'content' => $userContent];
 
         $body = array_merge(['messages' => $messages], $this->options);
-        if ($this->responseFormatClass !== null) {
+        if (null !== $this->responseFormatClass) {
             $body['response_format'] = ['type' => 'json_object'];
         }
 
@@ -84,39 +86,39 @@ final class BatchRequest
     {
         // A raw request carries the exact body the sync call sends (see raw()); OpenAI takes the
         // model on the line, so put back what raw() lifted out.
-        if ($this->body !== null) {
+        if (null !== $this->body) {
             return [
                 'custom_id' => $this->customId,
-                'method'    => 'POST',
-                'url'       => $this->endpoint ?? '/v1/chat/completions',
-                'body'      => ['model' => $this->model] + $this->body,
+                'method' => 'POST',
+                'url' => $this->endpoint ?? '/v1/chat/completions',
+                'body' => ['model' => $this->model] + $this->body,
             ];
         }
 
-        $userContent = $this->imageUrl !== null
+        $userContent = null !== $this->imageUrl
             ? [
                 ['type' => 'text', 'text' => $this->userPrompt],
                 ['type' => 'image_url', 'image_url' => ['url' => $this->imageUrl, 'detail' => 'low']],
-              ]
+            ]
             : $this->userPrompt;
 
         $body = array_merge([
-            'model'    => $this->model,
+            'model' => $this->model,
             'messages' => [
                 ['role' => 'system', 'content' => $this->systemPrompt],
                 ['role' => 'user',   'content' => $userContent],
             ],
         ], $this->options);
 
-        if ($this->responseFormatClass !== null) {
+        if (null !== $this->responseFormatClass) {
             $body['response_format'] = ['type' => 'json_object'];
         }
 
         return [
             'custom_id' => $this->customId,
-            'method'    => 'POST',
-            'url'       => '/v1/chat/completions',
-            'body'      => $body,
+            'method' => 'POST',
+            'url' => '/v1/chat/completions',
+            'body' => $body,
         ];
     }
 
@@ -125,20 +127,20 @@ final class BatchRequest
      */
     public function toAnthropicLine(): array
     {
-        $userContent = $this->imageUrl !== null
+        $userContent = null !== $this->imageUrl
             ? [
                 ['type' => 'image', 'source' => ['type' => 'url', 'url' => $this->imageUrl]],
-                ['type' => 'text',  'text'   => $this->userPrompt],
-              ]
+                ['type' => 'text',  'text' => $this->userPrompt],
+            ]
             : $this->userPrompt;
 
         return [
             'custom_id' => $this->customId,
-            'params'    => array_merge([
-                'model'      => $this->model,
+            'params' => array_merge([
+                'model' => $this->model,
                 'max_tokens' => $this->options['max_tokens'] ?? 1024,
-                'system'     => $this->systemPrompt,
-                'messages'   => [
+                'system' => $this->systemPrompt,
+                'messages' => [
                     ['role' => 'user', 'content' => $userContent],
                 ],
             ], array_diff_key($this->options, ['max_tokens' => true])),

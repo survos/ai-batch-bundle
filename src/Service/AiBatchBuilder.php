@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Service;
@@ -32,46 +33,47 @@ final class AiBatchBuilder
 
     public function __construct(
         private readonly BatchCapablePlatformInterface $client,
-    ) {}
+    ) {
+    }
 
     /**
      * Build an AiBatch entity from an iterable of records.
      * Does NOT submit — call submit() separately.
      *
-     * @param iterable<array>    $records
+     * @param iterable<array>               $records
      * @param callable(array): BatchRequest $requestFactory
      */
     public function build(
-        string   $datasetKey,
-        string   $task,
+        string $datasetKey,
+        string $task,
         iterable $records,
         callable $requestFactory,
-        array    $meta = [],
+        array $meta = [],
     ): AiBatch {
         $batch = new AiBatch();
         $batch->datasetKey = $datasetKey;
-        $batch->task       = $task;
-        $batch->provider   = 'openai'; // TODO: detect from $client
-        $batch->meta       = $meta;
+        $batch->task = $task;
+        $batch->provider = 'openai'; // TODO: detect from $client
+        $batch->meta = $meta;
 
         // Write input JSONL to temp file
-        $tmpFile = tempnam(sys_get_temp_dir(), 'ai_batch_') . '.jsonl';
-        $handle  = fopen($tmpFile, 'w');
-        $count   = 0;
+        $tmpFile = tempnam(sys_get_temp_dir(), 'ai_batch_').'.jsonl';
+        $handle = fopen($tmpFile, 'w');
+        $count = 0;
 
         foreach ($records as $record) {
             if ($count >= self::MAX_PER_BATCH) {
                 break;
             }
             $request = $requestFactory($record);
-            fwrite($handle, json_encode($request->toOpenAiLine(), JSON_THROW_ON_ERROR) . "\n");
-            $count++;
+            fwrite($handle, json_encode($request->toOpenAiLine(), JSON_THROW_ON_ERROR)."\n");
+            ++$count;
         }
 
         fclose($handle);
 
         $batch->inputFilePath = $tmpFile;
-        $batch->requestCount  = $count;
+        $batch->requestCount = $count;
 
         return $batch;
     }
@@ -111,14 +113,14 @@ final class AiBatchBuilder
      *
      * Sets $batch->savedResultPath on success.
      *
-     * @param string $savePath  Full path to write — use DataPaths::aiBatchResultFile($datasetKey, $batch->providerBatchId)
+     * @param string $savePath Full path to write — use DataPaths::aiBatchResultFile($datasetKey, $batch->providerBatchId)
      */
     public function downloadAndSave(AiBatch $batch, string $savePath): void
     {
-        if ($batch->providerBatchId === null) {
+        if (null === $batch->providerBatchId) {
             throw new \RuntimeException('Batch has no providerBatchId — was it submitted?');
         }
-        if ($batch->outputFileId === null) {
+        if (null === $batch->outputFileId) {
             throw new \RuntimeException("Batch {$batch->providerBatchId} has no outputFileId yet — is it complete?");
         }
 
@@ -127,16 +129,16 @@ final class AiBatchBuilder
             throw new \RuntimeException("Cannot create directory: {$dir}");
         }
 
-        $job     = $this->client->checkBatch($batch->providerBatchId);
+        $job = $this->client->checkBatch($batch->providerBatchId);
         $results = $this->client->fetchResults($job);
 
         $handle = fopen($savePath, 'wb');
-        if ($handle === false) {
+        if (false === $handle) {
             throw new \RuntimeException("Cannot open {$savePath} for writing.");
         }
 
         foreach ($results as $result) {
-            fwrite($handle, json_encode($result->raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+            fwrite($handle, json_encode($result->raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n");
         }
         fclose($handle);
 
@@ -158,7 +160,7 @@ final class AiBatchBuilder
         $handle = fopen($savedPath, 'rb');
         while (!feof($handle)) {
             $line = trim((string) fgets($handle));
-            if ($line === '') {
+            if ('' === $line) {
                 continue;
             }
             $raw = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
@@ -172,22 +174,28 @@ final class AiBatchBuilder
     {
         $requests = [];
         foreach (explode("\n", trim($jsonl)) as $line) {
-            if ($line === '') continue;
-            $data     = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-            $body     = $data['body'];
+            if ('' === $line) {
+                continue;
+            }
+            $data = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
+            $body = $data['body'];
             $messages = $body['messages'];
 
             $system = '';
-            $user   = '';
-            $image  = null;
+            $user = '';
+            $image = null;
             foreach ($messages as $m) {
-                if ($m['role'] === 'system') {
+                if ('system' === $m['role']) {
                     $system = $m['content'];
-                } elseif ($m['role'] === 'user') {
+                } elseif ('user' === $m['role']) {
                     if (is_array($m['content'])) {
                         foreach ($m['content'] as $part) {
-                            if ($part['type'] === 'text')      $user  = $part['text'];
-                            if ($part['type'] === 'image_url') $image = $part['image_url']['url'];
+                            if ('text' === $part['type']) {
+                                $user = $part['text'];
+                            }
+                            if ('image_url' === $part['type']) {
+                                $image = $part['image_url']['url'];
+                            }
                         }
                     } else {
                         $user = $m['content'];
@@ -196,13 +204,14 @@ final class AiBatchBuilder
             }
 
             $requests[] = new BatchRequest(
-                customId:     $data['custom_id'],
+                customId: $data['custom_id'],
                 systemPrompt: $system,
-                userPrompt:   $user,
-                model:        $body['model'],
-                imageUrl:     $image,
+                userPrompt: $user,
+                model: $body['model'],
+                imageUrl: $image,
             );
         }
+
         return $requests;
     }
 }

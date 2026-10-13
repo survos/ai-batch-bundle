@@ -1,13 +1,14 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Tacman\AiBatch\Service;
 
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Tacman\AiBatch\Contract\BatchCapablePlatformInterface;
 use Tacman\AiBatch\Model\BatchJob;
 use Tacman\AiBatch\Model\BatchRequest;
 use Tacman\AiBatch\Model\BatchResult;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * OpenAI Batch API client.
@@ -25,16 +26,20 @@ final class OpenAiBatchClient implements BatchCapablePlatformInterface
 
     public function __construct(
         private readonly HttpClientInterface $http,
-        private readonly string              $apiKey,
-    ) {}
+        private readonly string $apiKey,
+    ) {
+    }
 
-    public function supportsBatch(): bool { return true; }
+    public function supportsBatch(): bool
+    {
+        return true;
+    }
 
     public function submitBatch(array $requests, array $options = []): BatchJob
     {
         // 1. Build JSONL content
         $lines = array_map(
-            static fn(BatchRequest $r) => json_encode($r->toOpenAiLine(), JSON_THROW_ON_ERROR),
+            static fn (BatchRequest $r) => json_encode($r->toOpenAiLine(), JSON_THROW_ON_ERROR),
             $requests
         );
         $jsonl = implode("\n", $lines);
@@ -44,18 +49,20 @@ final class OpenAiBatchClient implements BatchCapablePlatformInterface
 
         // 3. Create batch
         $payload = array_merge([
-            'input_file_id'     => $fileId,
-            'endpoint'          => '/v1/chat/completions',
+            'input_file_id' => $fileId,
+            'endpoint' => '/v1/chat/completions',
             'completion_window' => '24h',
         ], $options);
 
         $data = $this->post('/batches', $payload);
+
         return BatchJob::fromOpenAiArray($data);
     }
 
     public function checkBatch(string $batchId): BatchJob
     {
         $data = $this->get("/batches/{$batchId}");
+
         return BatchJob::fromOpenAiArray($data);
     }
 
@@ -67,7 +74,9 @@ final class OpenAiBatchClient implements BatchCapablePlatformInterface
         foreach (array_unique(array_filter([$job->outputFileId, $job->errorFileId])) as $fileId) {
             $content = $this->getFileContent($fileId);
             foreach (explode("\n", trim($content)) as $line) {
-                if ($line === '') { continue; }
+                if ('' === $line) {
+                    continue;
+                }
                 yield BatchResult::fromOpenAiLine(json_decode($line, true, 512, JSON_THROW_ON_ERROR));
             }
         }
@@ -76,6 +85,7 @@ final class OpenAiBatchClient implements BatchCapablePlatformInterface
     public function cancelBatch(string $batchId): BatchJob
     {
         $data = $this->post("/batches/{$batchId}/cancel", []);
+
         return BatchJob::fromOpenAiArray($data);
     }
 
@@ -83,18 +93,19 @@ final class OpenAiBatchClient implements BatchCapablePlatformInterface
 
     private function uploadFile(string $content, string $purpose): string
     {
-        $tmpFile = tempnam(sys_get_temp_dir(), 'aibatch_upload_') . '.jsonl';
+        $tmpFile = tempnam(sys_get_temp_dir(), 'aibatch_upload_').'.jsonl';
         file_put_contents($tmpFile, $content);
 
-        $response = $this->http->request('POST', self::BASE . '/files', [
+        $response = $this->http->request('POST', self::BASE.'/files', [
             'auth_bearer' => $this->apiKey,
-            'body'        => [
+            'body' => [
                 'purpose' => $purpose,
-                'file'    => fopen($tmpFile, 'r'),
+                'file' => fopen($tmpFile, 'r'),
             ],
         ]);
 
         @unlink($tmpFile);
+
         return $response->toArray()['id'];
     }
 
@@ -108,48 +119,52 @@ final class OpenAiBatchClient implements BatchCapablePlatformInterface
     public function submitFromFileId(string $fileId, array $options = []): BatchJob
     {
         $payload = array_merge([
-            'input_file_id'     => $fileId,
-            'endpoint'          => $options['endpoint'] ?? '/v1/chat/completions',
+            'input_file_id' => $fileId,
+            'endpoint' => $options['endpoint'] ?? '/v1/chat/completions',
             'completion_window' => $options['completion_window'] ?? '24h',
         ], array_diff_key($options, ['endpoint' => 1, 'completion_window' => 1]));
 
         $data = $this->post('/batches', $payload);
+
         return BatchJob::fromOpenAiArray($data);
     }
 
     /**
      * List recent batches on the account.
+     *
      * @return BatchJob[]
      */
     public function listBatches(int $limit = 10): array
     {
         $data = $this->get("/batches?limit={$limit}");
+
         return array_map(
-            static fn(array $b) => BatchJob::fromOpenAiArray($b),
+            static fn (array $b) => BatchJob::fromOpenAiArray($b),
             $data['data'] ?? []
         );
     }
 
     private function getFileContent(string $fileId): string
     {
-        $response = $this->http->request('GET', self::BASE . "/files/{$fileId}/content", [
+        $response = $this->http->request('GET', self::BASE."/files/{$fileId}/content", [
             'auth_bearer' => $this->apiKey,
         ]);
+
         return $response->getContent();
     }
 
     private function get(string $path): array
     {
-        return $this->http->request('GET', self::BASE . $path, [
+        return $this->http->request('GET', self::BASE.$path, [
             'auth_bearer' => $this->apiKey,
         ])->toArray();
     }
 
     private function post(string $path, array $payload): array
     {
-        return $this->http->request('POST', self::BASE . $path, [
+        return $this->http->request('POST', self::BASE.$path, [
             'auth_bearer' => $this->apiKey,
-            'json'        => $payload,
+            'json' => $payload,
         ])->toArray();
     }
 }
