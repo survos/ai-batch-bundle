@@ -78,7 +78,7 @@ class TacmanAiBatchBundle extends AbstractSurvosBundle
             ->arg('$client', new \Symfony\Component\DependencyInjection\Reference('tacman.ai_batch.native_openai_job_client'));
         $services->set(Scheduler\PollBatchesTask::class);
 
-        if (class_exists(\Survos\TablerBundle\Event\MenuEvent::class)) {
+        if (class_exists(\Survos\TablerBundle\Menu\AbstractAdminMenuSubscriber::class)) {
             $services->set(Menu\AiBatchMenuSubscriber::class)
                 ->autowire()
                 ->autoconfigure();
