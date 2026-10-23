@@ -14,9 +14,9 @@
         "symfony/runtime": "^8.0",
         "symfony/flex": "^2.10",
         "symfony/yaml": "^8.0",
-        "symfony/ai-platform": "^0.14",
-        "symfony/ai-open-ai-platform": "^0.14",
-        "symfony/ai-bundle": "^0.14",
+        "symfony/ai-platform": "^0.15",
+        "symfony/ai-open-ai-platform": "^0.15",
+        "symfony/ai-bundle": "^0.15",
         "symfony/filesystem": "^8.1"
     },
     "require-dev": {
