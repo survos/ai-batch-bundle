@@ -15,8 +15,8 @@
     "require": {
         "php": "^8.5",
         "survos/kit-bundle": "^2.33",
-        "symfony/ai-platform": "^0.15",
-        "symfony/ai-open-ai-platform": "^0.15",
+        "symfony/ai-platform": "^1.0.0-beta1",
+        "symfony/ai-open-ai-platform": "^1.0.0-beta1",
         "symfony/filesystem": "^8.1",
         "symfony/framework-bundle": "^8.1",
         "symfony/http-client": "^8.1",
@@ -29,7 +29,7 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0",
-        "symfony/ai-agent": "^0.15"
+        "symfony/ai-agent": "^1.0.0-beta1"
     },
     "conflict": {
         "api-platform/core": "<5.0"
