@@ -15,12 +15,14 @@
     "require": {
         "php": "^8.5",
         "survos/kit-bundle": "^2.33",
+        "survos/jsonl-bundle": "^2.0",
         "symfony/ai-platform": "^1.0.0-beta1",
         "symfony/ai-open-ai-platform": "^1.0.0-beta1",
         "symfony/filesystem": "^8.1",
         "symfony/framework-bundle": "^8.1",
         "symfony/http-client": "^8.1",
-        "symfony/scheduler": "^8.1"
+        "symfony/scheduler": "^8.1",
+        "symfony/serializer": "^8.1"
     },
     "suggest": {
         "doctrine/orm": "For persisting AiBatch entities",

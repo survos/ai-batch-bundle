@@ -103,3 +103,23 @@ See [demo/README.md](demo/README.md). It runs against released Symfony AI 0.14,
 using files to demonstrate handle persistence across processes, without a fork,
 Doctrine database, or custom provider protocol. Its local numeric database IDs from
 the old demo are not inputs to the new fetch command.
+
+## Provider-neutral persistence
+
+`NativeBatchService` accepts `PlatformInterface`, `JobClientInterface`, and a
+`Filesystem`. Configure one instance per provider. It persists the same native
+handle and archive format as `NativeOpenAiBatchService`; the OpenAI service remains
+compatible and retains its provider-specific progress counts. The generic service
+maps `JobStateCase` into the entity lifecycle, retaining the provider's original
+status in `meta.symfony_ai_status`. It does not guess progress counts from job status.
+
+Structured result content is normalized through Symfony Serializer before archiving;
+OCR value objects must not be encoded as empty JSON objects. JSONL reads/writes use
+`survos/jsonl-bundle`. Archives replace the target only after successful completion.
+Raw provider responses should also be retained when their fields exceed the typed
+converter's representation (for example Mistral's newer layout blocks).
+
+Mistral native OCR support is being prepared on top of Symfony AI PR #2577. Do not
+switch installed consumers until the required bridge is available. Existing
+`MistralBatchClient` jobs and raw archives continue to work without this PR.
+See [the comparison and pilot record](docs/mistral-native-batches.md).
