@@ -30,7 +30,9 @@ use Tacman\AiBatch\Model\BatchResult;
  */
 final class MistralBatchClient implements BatchCapablePlatformInterface
 {
-    private const BASE = 'https://api.mistral.ai/v1';
+    private readonly string $base;
+
+    public const DEFAULT_BASE = 'https://api.mistral.ai/v1';
 
     /** Mistral accepts inline requests below 10,000; above that, upload a file. */
     public const INLINE_LIMIT = 10_000;
@@ -38,7 +40,10 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
     public function __construct(
         private readonly HttpClientInterface $http,
         private readonly string $apiKey,
+        /* Base URI up to /v1; null is Mistral. Any Mistral-compatible server, such as mediary, can stand in. */
+        ?string $baseUri = null,
     ) {
+        $this->base = rtrim(null === $baseUri || '' === $baseUri ? self::DEFAULT_BASE : $baseUri, '/');
     }
 
     public function supportsBatch(): bool
@@ -130,7 +135,7 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
         $tmp = tempnam(sys_get_temp_dir(), 'mistral_batch_').'.jsonl';
         file_put_contents($tmp, $jsonl);
         try {
-            $response = $this->http->request('POST', self::BASE.'/files', [
+            $response = $this->http->request('POST', $this->base.'/files', [
                 'auth_bearer' => $this->apiKey,
                 'body' => ['purpose' => 'batch', 'file' => fopen($tmp, 'r')],
             ]);
@@ -144,7 +149,7 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
     /** @return iterable<BatchResult> */
     private function linesOf(string $fileId): iterable
     {
-        $content = $this->http->request('GET', self::BASE."/files/{$fileId}/content", [
+        $content = $this->http->request('GET', $this->base."/files/{$fileId}/content", [
             'auth_bearer' => $this->apiKey,
         ])->getContent();
 
@@ -168,6 +173,6 @@ final class MistralBatchClient implements BatchCapablePlatformInterface
             $options['json'] = $json;
         }
 
-        return $this->http->request($method, self::BASE.$path, $options)->toArray();
+        return $this->http->request($method, $this->base.$path, $options)->toArray();
     }
 }

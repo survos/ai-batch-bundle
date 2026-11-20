@@ -59,6 +59,7 @@ class TacmanAiBatchBundle extends AbstractSurvosBundle
 
         $services->set(Service\MistralBatchClient::class)
             ->arg('$apiKey', '%env(string:default::MISTRAL_API_KEY)%')
+            ->arg('$baseUri', '%env(default::MISTRAL_BASE_URI)%')
             ->tag('tacman.ai_batch.client', ['provider' => 'mistral']);
 
         // provider name (AiBatch.provider) → client
